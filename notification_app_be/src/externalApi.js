@@ -20,8 +20,8 @@ async function fetchExternalJson(url, options = {}) {
   const timeout = setTimeout(() => controller.abort(), config.requestTimeoutMs);
 
   try {
-    const token = await getAccessToken();
-    const response = await fetch(url, {
+    let token = await getAccessToken();
+    let response = await fetch(url, {
       ...options,
       signal: controller.signal,
       headers: {
@@ -31,6 +31,21 @@ async function fetchExternalJson(url, options = {}) {
         ...(options.headers || {})
       }
     });
+
+    if (response.status === 401) {
+      await Log('backend', 'warn', 'auth', 'External API returned 401; refreshing access token once.');
+      token = await getAccessToken(true);
+      response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${token}`,
+          ...(options.body ? { 'content-type': 'application/json' } : {}),
+          ...(options.headers || {})
+        }
+      });
+    }
 
     const text = await response.text();
     const body = text ? parseJsonOrRaw(text) : {};

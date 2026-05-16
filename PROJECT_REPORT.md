@@ -256,6 +256,14 @@ If the evaluation server expects a different auth payload shape, set:
 EVALUATION_AUTH_PAYLOAD_JSON
 ```
 
+Credential lifecycle:
+
+- `EVALUATION_ACCESS_CODE` is used only for initial registration or evaluator-provided auth payloads.
+- `EVALUATION_ACCESS_TOKEN` can be supplied directly for testing.
+- `EVALUATION_CLIENT_ID` and `EVALUATION_CLIENT_SECRET` allow the middleware to request a fresh token.
+- Token expiry values are handled as either Unix timestamps or duration-in-seconds values.
+- If an external API call returns `401`, the backend retries once with a refreshed token when client credentials are available.
+
 ### 2. Confirm Exact External Notification Paths
 
 The service defaults to:

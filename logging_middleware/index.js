@@ -71,6 +71,11 @@ function hasUsableToken() {
   return cachedToken && Date.now() < tokenExpiresAt - 30_000;
 }
 
+function hasClientCredentials() {
+  const payload = buildAuthPayload();
+  return Boolean(payload.clientID && payload.clientSecret);
+}
+
 async function registerClient(payload = parseJsonEnv('EVALUATION_REGISTRATION_PAYLOAD_JSON')) {
   if (!payload) {
     throw new Error('Registration payload is required. Set EVALUATION_REGISTRATION_PAYLOAD_JSON or pass a payload.');
@@ -92,7 +97,10 @@ async function registerClient(payload = parseJsonEnv('EVALUATION_REGISTRATION_PA
 
 async function getAccessToken(forceRefresh = false) {
   if (!forceRefresh && hasUsableToken()) return cachedToken;
-  if (process.env.EVALUATION_ACCESS_TOKEN) return process.env.EVALUATION_ACCESS_TOKEN;
+  if (!forceRefresh && process.env.EVALUATION_ACCESS_TOKEN) return process.env.EVALUATION_ACCESS_TOKEN;
+  if (forceRefresh && process.env.EVALUATION_ACCESS_TOKEN && !hasClientCredentials()) {
+    return process.env.EVALUATION_ACCESS_TOKEN;
+  }
 
   const payload = buildAuthPayload();
   if (!payload.clientID || !payload.clientSecret) {
@@ -111,14 +119,23 @@ async function getAccessToken(forceRefresh = false) {
   }
 
   cachedToken = body.access_token || body.accessToken || body.token;
-  const expiresInSeconds = Number(body.expires_in || body.expiresIn || 3600);
-  tokenExpiresAt = Date.now() + expiresInSeconds * 1000;
+  tokenExpiresAt = resolveTokenExpiry(body.expires_in || body.expiresIn || body.expiresAt || body.expiry);
 
   if (!cachedToken) {
     throw new Error('Auth response did not include an access token.');
   }
 
   return cachedToken;
+}
+
+function resolveTokenExpiry(rawExpiry) {
+  const fallbackMs = Date.now() + 3600 * 1000;
+  const numericExpiry = Number(rawExpiry);
+  if (!Number.isFinite(numericExpiry) || numericExpiry <= 0) return fallbackMs;
+
+  if (numericExpiry > 1_000_000_000_000) return numericExpiry;
+  if (numericExpiry > 1_000_000_000) return numericExpiry * 1000;
+  return Date.now() + numericExpiry * 1000;
 }
 
 function validateLogInput(stack, level, packageName, message) {
@@ -192,6 +209,7 @@ module.exports = {
   Log,
   getAccessToken,
   registerClient,
+  resolveTokenExpiry,
   constants: {
     VALID_STACKS,
     VALID_LEVELS,
