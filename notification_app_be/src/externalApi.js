@@ -106,10 +106,23 @@ async function markNotificationRead(notificationId, body = {}) {
   const path = config.markReadPathTemplate.replace(':id', encodedId);
   const url = withQuery(path, {});
   await Log('backend', 'info', 'service', `Marking notification ${encodedId} as read.`);
-  return fetchExternalJson(url, {
-    method: 'PATCH',
-    body: JSON.stringify({ isRead: true, ...body })
-  });
+  try {
+    return await fetchExternalJson(url, {
+      method: 'PATCH',
+      body: JSON.stringify({ isRead: true, ...body })
+    });
+  } catch (error) {
+    if (error.statusCode !== 404) throw error;
+
+    await Log('backend', 'warn', 'service', 'External mark-read endpoint unavailable; returning local acknowledgement.');
+    return {
+      id: notificationId,
+      isRead: true,
+      readAt: new Date().toISOString(),
+      externalSynced: false,
+      reason: 'external_mark_read_endpoint_not_available'
+    };
+  }
 }
 
 module.exports = {
