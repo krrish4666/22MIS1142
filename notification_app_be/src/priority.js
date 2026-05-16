@@ -7,14 +7,15 @@ const CATEGORY_WEIGHTS = {
 };
 
 function normalizeNotification(input) {
-  const category = String(input.category || input.type || input.notificationType || '').toLowerCase();
-  const createdAtValue = input.createdAt || input.created_at || input.timestamp || input.date;
+  const category = String(input.category || input.type || input.Type || input.notificationType || '').toLowerCase();
+  const createdAtValue = input.createdAt || input.created_at || input.timestamp || input.Timestamp || input.date;
   const createdAt = createdAtValue ? new Date(createdAtValue) : new Date(0);
+  const message = input.message || input.Message || input.body || input.description || '';
 
   return {
-    id: input.id || input.notificationID || input.notificationId || input._id,
-    title: input.title || input.subject || '',
-    message: input.message || input.body || input.description || '',
+    id: input.id || input.ID || input.notificationID || input.notificationId || input._id,
+    title: input.title || input.Title || input.subject || message,
+    message,
     category,
     studentID: input.studentID || input.studentId || input.rollNo,
     isRead: Boolean(input.isRead || input.read),
