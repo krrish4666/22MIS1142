@@ -5,7 +5,7 @@
   "description": "Campus notifications backend assessment",
   "scripts": {
     "start": "node notification_app_be/src/server.js",
-    "check": "node --check logging_middleware/index.js && node --check notification_app_be/src/server.js && node --check notification_app_be/src/externalApi.js && node --check notification_app_be/src/priority.js && node --check notification_app_be/src/router.js"
+    "check": "node --check logging_middleware/index.js && node --check notification_app_be/src/server.js && node --check notification_app_be/src/config.js && node --check notification_app_be/src/externalApi.js && node --check notification_app_be/src/http.js && node --check notification_app_be/src/priority.js && node --check notification_app_be/src/router.js"
   },
   "workspaces": [
     "logging_middleware",

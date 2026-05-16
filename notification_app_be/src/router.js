@@ -14,6 +14,7 @@ async function route(req, res) {
     await Log('backend', 'info', 'route', `${req.method} ${url.pathname} request received.`);
 
     if (req.method === 'GET' && url.pathname === '/health') {
+      await Log('backend', 'info', 'controller', 'Health check succeeded.');
       return sendJson(res, 200, { status: 'ok' });
     }
 
@@ -46,6 +47,7 @@ async function route(req, res) {
     }
 
     if (req.method === 'GET' && url.pathname === '/notifications/stream') {
+      await Log('backend', 'info', 'controller', 'Preparing notification stream response.');
       return streamNotifications(req, res, Object.fromEntries(url.searchParams.entries()));
     }
 

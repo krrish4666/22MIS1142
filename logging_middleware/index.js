@@ -148,11 +148,17 @@ async function Log(stack, level, packageName, message) {
     return { delivered: false, reason: error.message };
   }
 
-  const response = await requireFetch()(`${getBaseUrl()}${process.env.EVALUATION_LOG_PATH || LOG_ENDPOINT}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
-  });
+  let response;
+  try {
+    response = await requireFetch()(`${getBaseUrl()}${process.env.EVALUATION_LOG_PATH || LOG_ENDPOINT}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  } catch (error) {
+    if (process.env.LOG_REQUIRE_REMOTE === 'true') throw error;
+    return { delivered: false, reason: 'log_service_unavailable' };
+  }
 
   if (!response.ok) {
     const body = await readResponseBody(response);

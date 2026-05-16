@@ -41,9 +41,22 @@ async function fetchExternalJson(url, options = {}) {
       throw error;
     }
     return body;
+  } catch (error) {
+    if (error.statusCode) throw error;
+    throw toExternalServiceError(error);
   } finally {
     clearTimeout(timeout);
   }
+}
+
+function toExternalServiceError(cause) {
+  const error = new Error('External notification service is unavailable.');
+  error.statusCode = 503;
+  error.code = 'EXTERNAL_SERVICE_UNAVAILABLE';
+  error.body = {
+    cause: cause.name === 'AbortError' ? 'request_timeout' : 'request_failed'
+  };
+  return error;
 }
 
 function parseJsonOrRaw(text) {
