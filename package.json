@@ -1,0 +1,17 @@
+{
+  "name": "22mis1142",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Campus notifications backend assessment",
+  "scripts": {
+    "start": "node notification_app_be/src/server.js",
+    "check": "node --check logging_middleware/index.js && node --check notification_app_be/src/server.js && node --check notification_app_be/src/externalApi.js && node --check notification_app_be/src/priority.js && node --check notification_app_be/src/router.js"
+  },
+  "workspaces": [
+    "logging_middleware",
+    "notification_app_be"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

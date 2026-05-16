@@ -1,0 +1,9 @@
+{
+  "name": "logging_middleware",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

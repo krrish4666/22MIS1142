@@ -1,0 +1,16 @@
+{
+  "name": "notification_app_be",
+  "version": "1.0.0",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "check": "node --check src/server.js && node --check src/externalApi.js && node --check src/priority.js && node --check src/router.js"
+  },
+  "dependencies": {
+    "logging_middleware": "file:../logging_middleware"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
