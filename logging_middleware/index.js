@@ -54,7 +54,9 @@ function buildAuthPayload() {
   const payload = {};
   const fieldMap = {
     EVALUATION_EMAIL: 'email',
+    EVALUATION_NAME: 'name',
     EVALUATION_ROLL_NO: 'rollNo',
+    EVALUATION_MOBILE_NO: 'mobileNo',
     EVALUATION_ACCESS_CODE: 'accessCode',
     EVALUATION_CLIENT_ID: 'clientID',
     EVALUATION_CLIENT_SECRET: 'clientSecret'
