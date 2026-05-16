@@ -16,6 +16,17 @@ accept: application/json
 
 `GET /api/v1/students/{studentID}/notifications?unreadOnly=true&category=placement&limit=20&cursor=eyJjcmVhdGVkQXQiOiI...`
 
+Query parameters:
+
+```json
+{
+  "unreadOnly": "boolean, optional",
+  "category": "placement | result | event, optional",
+  "limit": "number, optional, default 20, max 100",
+  "cursor": "string, optional"
+}
+```
+
 Response:
 
 ```json
@@ -34,6 +45,17 @@ Response:
   "page": {
     "limit": 20,
     "nextCursor": "eyJjcmVhdGVkQXQiOiI..."
+  }
+}
+```
+
+Error response:
+
+```json
+{
+  "error": {
+    "code": "INVALID_REQUEST",
+    "message": "limit must be between 1 and 100"
   }
 }
 ```
@@ -63,6 +85,8 @@ Response:
 }
 ```
 
+Idempotency rule: marking an already-read notification as read should still return `200 OK` with the current read state. This prevents clients from failing when a user double-clicks or retries after a network timeout.
+
 ### Real-time updates
 
 `GET /api/v1/students/{studentID}/notifications/stream`
@@ -82,6 +106,13 @@ SSE event:
   }
 }
 ```
+
+Real-time connection behavior:
+
+- The client authenticates once with the same Bearer token header.
+- The service sends a snapshot event after connection.
+- New notification events are pushed as they arrive.
+- The client reconnects using normal SSE retry behavior if the network drops.
 
 ## Stage 2: Data Persistence
 
@@ -114,6 +145,16 @@ CREATE TABLE notifications (
 
 Queries:
 
+Insert a notification:
+
+```sql
+INSERT INTO notifications (student_id, category, title, message, metadata)
+VALUES ($1, $2, $3, $4, COALESCE($5, '{}'::jsonb))
+RETURNING id, student_id, category, title, message, is_read, created_at;
+```
+
+Fetch notifications:
+
 ```sql
 SELECT id, student_id, category, title, message, is_read, created_at
 FROM notifications
@@ -137,6 +178,8 @@ Scalability concerns:
 - Per-student unread queries become hot during class start times and page loads.
 - Old notifications should be partitioned or archived by month.
 - Cursor pagination avoids slow high-offset scans.
+- Bulk campaign writes should use batched inserts instead of one insert per request loop.
+- If the notification table reaches hundreds of millions of rows, partition by `created_at` month and keep hot partitions indexed for recent reads.
 
 ## Stage 3: Query Optimization
 
@@ -170,6 +213,13 @@ CREATE INDEX idx_notifications_unread_student_created
 ON notifications (student_id, created_at DESC)
 WHERE is_read = false;
 ```
+
+Why this index works:
+
+- `student_id` matches the most selective equality filter.
+- The partial condition stores only unread rows, reducing index size.
+- `created_at DESC` supports the sort order directly.
+- The query can stop after the requested page limit instead of scanning all unread rows.
 
 Optimized fetch:
 
@@ -206,6 +256,33 @@ Strategy:
 - Prefer cursor pagination and projection queries to avoid large DB reads.
 - Use SSE or WebSockets for near-real-time delivery instead of aggressive polling.
 
+Cache key examples:
+
+```text
+notifications:student:1042:unread:v1
+notifications:student:1042:count:v1
+notifications:student:1042:category:placement:v1
+```
+
+Cache invalidation:
+
+```text
+on notification_created(student_id):
+  delete notifications:student:{student_id}:*
+  publish notification.created event
+
+on notification_marked_read(student_id, notification_id):
+  delete notifications:student:{student_id}:*
+  publish notification.read event
+```
+
+Page-load optimization:
+
+- Serve cached unread count immediately.
+- Fetch first page from Redis if available.
+- On cache miss, query PostgreSQL using the composite/partial index, write Redis with TTL, then return.
+- Use background refresh for frequently accessed students if traffic is predictable.
+
 Tradeoffs:
 
 - Redis lowers DB pressure but adds invalidation complexity.
@@ -225,6 +302,35 @@ Redesigned flow:
 4. Workers consume jobs and insert notification rows in batches.
 5. Email jobs are published separately after durable notification rows are created.
 6. Email workers retry transient failures with exponential backoff and dead-letter permanent failures.
+
+Redesigned `notify_all` pseudocode:
+
+```text
+function notify_all(request):
+  campaign = save_campaign(request)
+  student_ranges = split_students_into_ranges(request.audience)
+
+  for range in student_ranges:
+    publish queue "notification.write" {
+      campaign_id: campaign.id,
+      student_range: range
+    }
+
+  return {
+    campaign_id: campaign.id,
+    status: "queued"
+  }
+
+worker notification.write:
+  insert notifications in batches of 500 to 1000
+  publish one email.send job per recipient or per provider batch
+  acknowledge queue message only after DB commit
+
+worker email.send:
+  call email provider
+  retry transient failures with backoff
+  move exhausted failures to dead-letter queue
+```
 
 Example tables:
 
