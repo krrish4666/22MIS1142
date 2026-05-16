@@ -13,6 +13,21 @@ async function route(req, res) {
   try {
     await Log('backend', 'info', 'route', `${req.method} ${url.pathname} request received.`);
 
+    if (req.method === 'GET' && url.pathname === '/') {
+      await Log('backend', 'info', 'controller', 'Root endpoint returned service metadata.');
+      return sendJson(res, 200, {
+        service: 'campus-notifications-backend',
+        status: 'running',
+        endpoints: [
+          'GET /health',
+          'GET /notifications?studentID=1042',
+          'PATCH /notifications/:id/read',
+          'GET /notifications/stream?studentID=1042',
+          'GET /priority-inbox?studentID=1042&limit=10'
+        ]
+      });
+    }
+
     if (req.method === 'GET' && url.pathname === '/health') {
       await Log('backend', 'info', 'controller', 'Health check succeeded.');
       return sendJson(res, 200, { status: 'ok' });
