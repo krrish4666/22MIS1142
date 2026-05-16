@@ -183,6 +183,8 @@ async function Log(stack, level, packageName, message) {
     const body = await readResponseBody(response);
     if (response.status === 401) {
       cachedToken = null;
+      const retryResult = await retryLogWithFreshToken(payload);
+      if (retryResult.delivered) return retryResult;
     }
     if (process.env.LOG_REQUIRE_REMOTE === 'true') {
       throw new Error(`Remote log failed with HTTP ${response.status}: ${stringifyBody(body)}`);
@@ -191,6 +193,29 @@ async function Log(stack, level, packageName, message) {
   }
 
   return { delivered: true };
+}
+
+async function retryLogWithFreshToken(payload) {
+  try {
+    const token = await getAccessToken(true);
+    const response = await requireFetch()(`${getBaseUrl()}${process.env.EVALUATION_LOG_PATH || LOG_ENDPOINT}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      return { delivered: false, status: response.status, body: await readResponseBody(response) };
+    }
+
+    return { delivered: true };
+  } catch (error) {
+    if (process.env.LOG_REQUIRE_REMOTE === 'true') throw error;
+    return { delivered: false, reason: 'log_retry_failed' };
+  }
 }
 
 async function readResponseBody(response) {
